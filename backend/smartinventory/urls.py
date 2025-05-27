@@ -3,5 +3,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('inventory.urls')),  # This line connects app URLs
+    path('api/', include('inventory.urls')),  # This line links your app's routes
 ]

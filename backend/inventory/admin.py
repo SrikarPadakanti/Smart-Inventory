@@ -1,4 +1,6 @@
-from django.contrib import admin
-from .models import Product
+from django.contrib import admin  # <- This was missing
+from .models import InventoryItem
 
-admin.site.register(Product)
+@admin.register(InventoryItem)
+class InventoryItemAdmin(admin.ModelAdmin):
+    list_display = ('name', 'sku', 'quantity', 'price', 'last_updated')

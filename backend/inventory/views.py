@@ -1,4 +1,7 @@
-from django.http import HttpResponse
+from rest_framework import viewsets
+from .models import InventoryItem
+from .serializers import InventoryItemSerializer
 
-def home(request):
-    return HttpResponse("Welcome to SmartInventory!")
+class InventoryItemViewSet(viewsets.ModelViewSet):
+    queryset = InventoryItem.objects.all()
+    serializer_class = InventoryItemSerializer
