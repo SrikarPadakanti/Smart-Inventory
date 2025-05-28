@@ -9,6 +9,8 @@ function ProductDashboard() {
   const [editingProductId, setEditingProductId] = useState(null);
   const [editedName, setEditedName] = useState('');
   const [editedQuantity, setEditedQuantity] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
 
   useEffect(() => {
     fetch('/api/products/')
@@ -87,6 +89,16 @@ function ProductDashboard() {
     }
   };
 
+  const handleSortToggle = () => {
+    setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+  };
+
+  const filteredAndSortedProducts = [...products]
+    .filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) =>
+      sortOrder === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity
+    );
+
   return (
     <div style={{ padding: '20px' }}>
       <h1>📦 Smart Inventory Dashboard</h1>
@@ -106,8 +118,19 @@ function ProductDashboard() {
         <button onClick={addProduct}>Add Product</button>
       </div>
 
+      <div style={{ marginBottom: '15px' }}>
+        <input
+          placeholder="Search by Name"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+        <button onClick={handleSortToggle}>
+          Sort by Quantity: {sortOrder === 'asc' ? '⬆️ Asc' : '⬇️ Desc'}
+        </button>
+      </div>
+
       <ul>
-        {products.map((product) => (
+        {filteredAndSortedProducts.map((product) => (
           <li key={product.id} style={{ marginBottom: '10px' }}>
             {editingProductId === product.id ? (
               <>
