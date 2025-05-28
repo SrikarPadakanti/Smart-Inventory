@@ -1,34 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 function ProductDashboard() {
   const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [category, setCategory] = useState(''); // New category input
+  const [category, setCategory] = useState('');  // Add category input for new product
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortKey, setSortKey] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  
+  const [stockFilter, setStockFilter] = useState('all');
+
   const [editingProductId, setEditingProductId] = useState(null);
   const [editedName, setEditedName] = useState('');
   const [editedQuantity, setEditedQuantity] = useState('');
-  const [editedCategory, setEditedCategory] = useState(''); // Edited category
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All'); // Category filter
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const PRODUCTS_PER_PAGE = 5;
+  const [editedCategory, setEditedCategory] = useState('');
 
   useEffect(() => {
     fetch('/api/products/')
       .then(res => res.json())
-      .then(data => setProducts(data));
+      .then(data => {
+        setProducts(data);
+        setFilteredProducts(data);
+      });
   }, []);
 
-  const showToast = (message, type = 'success') => {
-    toast[type](message, { position: 'top-right', autoClose: 2000 });
-  };
+  // Filter products based on search term and stock status
+  useEffect(() => {
+    let updated = [...products];
+
+    // Search filter
+    if (searchTerm) {
+      updated = updated.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Stock status filter
+    if (stockFilter !== 'all') {
+      updated = updated.filter(product => product.stock_status === stockFilter);
+    }
+
+    // Sort
+    updated.sort((a, b) => {
+      let valA = a[sortKey];
+      let valB = b[sortKey];
+
+      // For strings, compare lowercase for consistent sorting
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    setFilteredProducts(updated);
+  }, [products, searchTerm, sortKey, sortOrder, stockFilter]);
 
   const addProduct = () => {
+    if (!name || !quantity) return alert('Please enter product name and quantity');
     fetch('/api/products/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,22 +74,21 @@ function ProductDashboard() {
         setName('');
         setQuantity('');
         setCategory('');
-        showToast('Product added!');
       });
   };
 
   const deleteProduct = async (id) => {
     try {
-      const response = await fetch(`/api/products/${id}/`, { method: 'DELETE' });
+      const response = await fetch(`/api/products/${id}/`, {
+        method: 'DELETE',
+      });
       if (response.status === 204) {
         setProducts(products.filter(product => product.id !== id));
-        showToast('Product deleted!');
       } else {
-        showToast('Failed to delete product', 'error');
+        console.error('Failed to delete product');
       }
     } catch (err) {
       console.error('Error:', err);
-      showToast('Error occurred while deleting', 'error');
     }
   };
 
@@ -63,174 +96,146 @@ function ProductDashboard() {
     setEditingProductId(product.id);
     setEditedName(product.name);
     setEditedQuantity(product.quantity);
-    setEditedCategory(product.category || ''); // Set editing category
+    setEditedCategory(product.category || '');
   };
 
   const updateProduct = async (id) => {
+    if (!editedName || !editedQuantity) return alert('Name and quantity required');
+
     try {
       const response = await fetch(`/api/products/${id}/`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           name: editedName,
-          quantity: editedQuantity,
+          quantity: Number(editedQuantity),
           category: editedCategory,
         }),
       });
       if (response.ok) {
         const updatedProduct = await response.json();
-        setProducts(products.map(p => (p.id === id ? updatedProduct : p)));
+        setProducts(
+          products.map(product =>
+            product.id === id ? updatedProduct : product
+          )
+        );
         setEditingProductId(null);
-        showToast('Product updated!');
       } else {
-        showToast('Update failed', 'error');
+        console.error('Update failed');
       }
     } catch (err) {
       console.error('Error:', err);
-      showToast('Error occurred while updating', 'error');
     }
   };
 
-  const handleSort = (products) => {
-    switch (sortOption) {
-      case 'name-asc': return [...products].sort((a, b) => a.name.localeCompare(b.name));
-      case 'name-desc': return [...products].sort((a, b) => b.name.localeCompare(a.name));
-      case 'quantity-asc': return [...products].sort((a, b) => a.quantity - b.quantity);
-      case 'quantity-desc': return [...products].sort((a, b) => b.quantity - a.quantity);
-      default: return products;
-    }
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
-
-  // Filter by search and category filter
-  let filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-    (categoryFilter === 'All' || product.category === categoryFilter)
-  );
-
-  filteredProducts = handleSort(filteredProducts);
-
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * PRODUCTS_PER_PAGE,
-    currentPage * PRODUCTS_PER_PAGE
-  );
-
-  const categories = ['All', ...new Set(products.map(p => p.category).filter(Boolean))]; // unique categories
 
   return (
-    <div>
+    <div style={{ maxWidth: '600px', margin: 'auto', fontFamily: 'Arial, sans-serif' }}>
       <h1>Smart Inventory Dashboard</h1>
 
-      <input
-        placeholder="Product Name"
-        value={name}
-        onChange={e => setName(e.target.value)}
-      />
-      <input
-        placeholder="Quantity"
-        type="number"
-        value={quantity}
-        onChange={e => setQuantity(e.target.value)}
-      />
-      <input
-        placeholder="Category"
-        value={category}
-        onChange={e => setCategory(e.target.value)}
-      />
-      <button onClick={addProduct}>Add Product</button>
-
-      <div style={{ marginTop: '20px' }}>
+      {/* Add Product */}
+      <div style={{ marginBottom: '1rem' }}>
         <input
-          placeholder="Search by name"
-          value={searchQuery}
-          onChange={e => {
-            setSearchQuery(e.target.value);
-            setCurrentPage(1); // Reset page on search change
-          }}
+          placeholder="Product Name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          style={{ marginRight: 8 }}
+        />
+        <input
+          placeholder="Quantity"
+          type="number"
+          value={quantity}
+          onChange={e => setQuantity(e.target.value)}
+          style={{ marginRight: 8, width: 80 }}
+        />
+        <input
+          placeholder="Category"
+          value={category}
+          onChange={e => setCategory(e.target.value)}
+          style={{ marginRight: 8 }}
+        />
+        <button onClick={addProduct}>Add Product</button>
+      </div>
+
+      {/* Filters and Sorting */}
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <input
+          type="search"
+          placeholder="Search products..."
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ flexGrow: 1 }}
         />
 
-        <select
-          value={categoryFilter}
-          onChange={e => {
-            setCategoryFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-        >
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
+        <select value={stockFilter} onChange={e => setStockFilter(e.target.value)}>
+          <option value="all">All Stock Status</option>
+          <option value="in_stock">In Stock</option>
+          <option value="low_stock">Low Stock</option>
+          <option value="out_of_stock">Out of Stock</option>
         </select>
 
-        <select
-          value={sortOption}
-          onChange={e => {
-            setSortOption(e.target.value);
-            setCurrentPage(1);
-          }}
-        >
-          <option value="">Sort By</option>
-          <option value="name-asc">Name (A-Z)</option>
-          <option value="name-desc">Name (Z-A)</option>
-          <option value="quantity-asc">Quantity (Low to High)</option>
-          <option value="quantity-desc">Quantity (High to Low)</option>
+        <select value={sortKey} onChange={e => setSortKey(e.target.value)}>
+          <option value="name">Sort by Name</option>
+          <option value="quantity">Sort by Quantity</option>
+          <option value="date_added">Sort by Date Added</option>
+          <option value="category">Sort by Category</option>
+          <option value="stock_status">Sort by Stock Status</option>
+        </select>
+
+        <select value={sortOrder} onChange={e => setSortOrder(e.target.value)}>
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
         </select>
       </div>
 
-      <ul>
-        {paginatedProducts.map(product => (
-          <div key={product.id}>
+      {/* Product List */}
+      <ul style={{ listStyle: 'none', padding: 0 }}>
+        {filteredProducts.map(product => (
+          <li key={product.id} style={{ borderBottom: '1px solid #ddd', padding: '8px 0' }}>
             {editingProductId === product.id ? (
               <>
                 <input
                   type="text"
                   value={editedName}
                   onChange={e => setEditedName(e.target.value)}
+                  style={{ marginRight: 8 }}
                 />
                 <input
                   type="number"
                   value={editedQuantity}
                   onChange={e => setEditedQuantity(e.target.value)}
+                  style={{ marginRight: 8, width: 80 }}
                 />
                 <input
                   type="text"
                   value={editedCategory}
                   onChange={e => setEditedCategory(e.target.value)}
+                  style={{ marginRight: 8 }}
                 />
-                <button onClick={() => updateProduct(product.id)}>Save</button>
+                <button onClick={() => updateProduct(product.id)} style={{ marginRight: 4 }}>Save</button>
                 <button onClick={() => setEditingProductId(null)}>Cancel</button>
               </>
             ) : (
               <>
-                <b>{product.name}</b> — {product.quantity} — <i>{product.category || 'No Category'}</i>
-                <button onClick={() => startEditing(product)}>Edit</button>
+                <strong>{product.name}</strong> — Qty: {product.quantity} — 
+                Category: {product.category || 'N/A'} — 
+                Added: {formatDate(product.date_added)} — 
+                Status: <em>{product.stock_status.replace(/_/g, ' ')}</em>
+
+                <button onClick={() => startEditing(product)} style={{ marginLeft: 8, marginRight: 4 }}>Edit</button>
                 <button onClick={() => deleteProduct(product.id)}>Delete</button>
               </>
             )}
-          </div>
+          </li>
         ))}
       </ul>
-
-      {/* Pagination Controls */}
-      <div style={{ marginTop: '10px' }}>
-        <button
-          disabled={currentPage === 1}
-          onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-        >
-          Prev
-        </button>
-        <span style={{ margin: '0 10px' }}>
-          Page {currentPage} of {totalPages || 1}
-        </span>
-        <button
-          disabled={currentPage === totalPages || totalPages === 0}
-          onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-        >
-          Next
-        </button>
-      </div>
-
-      <ToastContainer />
     </div>
   );
 }
