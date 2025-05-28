@@ -1,7 +1,11 @@
-from django.shortcuts import render
+# api/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Product
+from .serializers import ProductSerializer
 
-# Create your views here.
-from django.http import JsonResponse
-
-def api_root(request):
-    return JsonResponse({"message": "API Root works 💥"})
+class ProductListAPIView(APIView):
+    def get(self, request):
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
