@@ -1,5 +1,6 @@
 # backend/smartinventory/settings.py
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',  # DRF if you use it
     'inventory',       # Your app
+    'api',            # API app for DRF
 ]
 
 MIDDLEWARE = [
@@ -37,7 +39,7 @@ ROOT_URLCONF = 'smartinventory.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # Add your templates folder if any
+        'DIRS': [os.path.join(BASE_DIR, '../frontend/templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
