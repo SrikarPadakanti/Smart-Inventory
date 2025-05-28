@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 function ProductDashboard() {
@@ -9,22 +9,20 @@ function ProductDashboard() {
   const [editingProductId, setEditingProductId] = useState(null);
   const [editedName, setEditedName] = useState('');
   const [editedQuantity, setEditedQuantity] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState('');
 
   useEffect(() => {
     fetch('/api/products/')
       .then(res => res.json())
-      .then(data => setProducts(data))
-      .catch(() => toast.error('Failed to fetch products'));
+      .then(data => setProducts(data));
   }, []);
 
-  const addProduct = () => {
-    if (!name.trim() || quantity === '' || Number(quantity) < 0) {
-      toast.error('Please provide valid product details');
-      return;
-    }
+  const showToast = (message, type = 'success') => {
+    toast[type](message, { position: 'top-right', autoClose: 2000 });
+  };
 
+  const addProduct = () => {
     fetch('/api/products/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -35,9 +33,8 @@ function ProductDashboard() {
         setProducts([...products, newProduct]);
         setName('');
         setQuantity('');
-        toast.success('Product added!');
-      })
-      .catch(() => toast.error('Failed to add product'));
+        showToast('Product added!');
+      });
   };
 
   const deleteProduct = async (id) => {
@@ -45,15 +42,15 @@ function ProductDashboard() {
       const response = await fetch(`/api/products/${id}/`, {
         method: 'DELETE',
       });
-
       if (response.status === 204) {
         setProducts(products.filter(product => product.id !== id));
-        toast.success('Product deleted');
+        showToast('Product deleted!');
       } else {
-        toast.error('Failed to delete product');
+        showToast('Failed to delete product', 'error');
       }
     } catch (err) {
-      toast.error('Error deleting product');
+      console.error('Error:', err);
+      showToast('Error occurred while deleting', 'error');
     }
   };
 
@@ -64,74 +61,86 @@ function ProductDashboard() {
   };
 
   const updateProduct = async (id) => {
-    if (!editedName.trim() || editedQuantity === '' || Number(editedQuantity) < 0) {
-      toast.error('Invalid update values');
-      return;
-    }
-
     try {
       const response = await fetch(`/api/products/${id}/`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editedName, quantity: Number(editedQuantity) }),
+        body: JSON.stringify({
+          name: editedName,
+          quantity: editedQuantity,
+        }),
       });
-
       if (response.ok) {
         const updatedProduct = await response.json();
-        setProducts(products.map(product => product.id === id ? updatedProduct : product));
+        setProducts(products.map((p) => (p.id === id ? updatedProduct : p)));
         setEditingProductId(null);
-        toast.success('Product updated!');
+        showToast('Product updated!');
       } else {
-        toast.error('Update failed');
+        showToast('Update failed', 'error');
       }
     } catch (err) {
-      toast.error('Error updating product');
+      console.error('Error:', err);
+      showToast('Error occurred while updating', 'error');
     }
   };
 
-  const handleSortToggle = () => {
-    setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+  const handleSort = (products) => {
+    switch (sortOption) {
+      case 'name-asc':
+        return [...products].sort((a, b) => a.name.localeCompare(b.name));
+      case 'name-desc':
+        return [...products].sort((a, b) => b.name.localeCompare(a.name));
+      case 'quantity-asc':
+        return [...products].sort((a, b) => a.quantity - b.quantity);
+      case 'quantity-desc':
+        return [...products].sort((a, b) => b.quantity - a.quantity);
+      default:
+        return products;
+    }
   };
 
-  const filteredAndSortedProducts = [...products]
-    .filter(product => product.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) =>
-      sortOrder === 'asc' ? a.quantity - b.quantity : b.quantity - a.quantity
-    );
+  const filteredProducts = handleSort(
+    products.filter((product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>📦 Smart Inventory Dashboard</h1>
+    <div>
+      <h1>Smart Inventory Dashboard</h1>
 
-      <div style={{ marginBottom: '15px' }}>
-        <input
-          placeholder="Product Name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        <input
-          placeholder="Quantity"
-          type="number"
-          value={quantity}
-          onChange={e => setQuantity(e.target.value)}
-        />
-        <button onClick={addProduct}>Add Product</button>
-      </div>
+      <input
+        placeholder="Product Name"
+        value={name}
+        onChange={e => setName(e.target.value)}
+      />
+      <input
+        placeholder="Quantity"
+        type="number"
+        value={quantity}
+        onChange={e => setQuantity(e.target.value)}
+      />
+      <button onClick={addProduct}>Add Product</button>
 
-      <div style={{ marginBottom: '15px' }}>
+      <div style={{ marginTop: '20px' }}>
         <input
-          placeholder="Search by Name"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Search by name"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
         />
-        <button onClick={handleSortToggle}>
-          Sort by Quantity: {sortOrder === 'asc' ? '⬆️ Asc' : '⬇️ Desc'}
-        </button>
+
+        <select value={sortOption} onChange={(e) => setSortOption(e.target.value)}>
+          <option value="">Sort By</option>
+          <option value="name-asc">Name (A-Z)</option>
+          <option value="name-desc">Name (Z-A)</option>
+          <option value="quantity-asc">Quantity (Low to High)</option>
+          <option value="quantity-desc">Quantity (High to Low)</option>
+        </select>
       </div>
 
       <ul>
-        {filteredAndSortedProducts.map((product) => (
-          <li key={product.id} style={{ marginBottom: '10px' }}>
+        {filteredProducts.map((product) => (
+          <div key={product.id}>
             {editingProductId === product.id ? (
               <>
                 <input
@@ -149,16 +158,15 @@ function ProductDashboard() {
               </>
             ) : (
               <>
-                <strong>{product.name}</strong> — {product.quantity}
+                {product.name} — {product.quantity}
                 <button onClick={() => startEditing(product)}>Edit</button>
                 <button onClick={() => deleteProduct(product.id)}>Delete</button>
               </>
             )}
-          </li>
+          </div>
         ))}
       </ul>
-
-      <ToastContainer position="bottom-right" />
+      <ToastContainer />
     </div>
   );
 }
