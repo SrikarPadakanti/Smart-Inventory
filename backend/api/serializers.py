@@ -1,9 +1,8 @@
-# backend/api/serializers.py
-
+# serializers.py
 from rest_framework import serializers
 from .models import Product
 
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'quantity']
+        fields = ['id', 'name', 'quantity', 'category']  # Add category here
