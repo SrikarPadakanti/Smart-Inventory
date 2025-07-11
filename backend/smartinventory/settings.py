@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'rest_framework',  # DRF if you use it
     'inventory',       # Your app
     'api',            # API app for DRF
+    'rest_framework_simplejwt',
     'corsheaders',  # CORS headers for API
 ]
 
@@ -66,6 +67,12 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
 }
 
 # Password validation (default)
